@@ -20,7 +20,7 @@ class UserCF:
         self.topn = topn
         self.k = k
     
-    def cal_degree(self):    
+    def cal_user_degree(self):    
         '''
             统计训练集中用户的degree信息
         '''
@@ -32,6 +32,17 @@ class UserCF:
                 self.user_degree[user] = degree
             else:
                 self.user_degree[user] = 0  
+        return self.user_degree
+    
+    def cal_item_degree(self):
+        self.item_degree = {}
+
+        for u,items in self.train.items():
+            for item in items:
+                self.item_degree.setdefault(item, 0)
+                self.item_degree[item] = self.item_degree[item] + 1
+        
+        return self.item_degree
                                                 
                                                 
     def cal_sim(self):
@@ -88,9 +99,24 @@ class UserCF:
         return recommend_score
 
 
-    def get_item_score(self):
-        '''
-        获得训练集的所有item的得分
-        '''
-        item_socre = np.zeros((self.item_len, 1), np.float32)
-    
+def get_item_score(user_degree, recommend_score, item_len):
+    '''
+    获得训练集的所有item的得分
+    '''
+    item_socre = np.zeros((item_len, 1), np.float32)
+
+    for user in recommend_score:
+        item_socre += recommend_score[user] *user_degree[user]
+    return item_socre
+
+
+def degree_predict(train, test, item_degree, item_socre):
+    '''
+    预测训练集中degree相同的item，预测它们未来的degree高低
+    '''
+
+
+
+
+if __name__ == "__main__":
+    trainset, test, item_len = deal_train() 
