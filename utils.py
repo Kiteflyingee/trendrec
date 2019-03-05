@@ -20,8 +20,8 @@ def cal_sim(vecA, vecB):
     return dot_product / denom 
     
     
-def deal_train(file=''):
-    train, test = pickle.load(open(r'./data/delicious/data.pkl', 'wb+'))
+def deal_train(file='./data/delicious/data.pkl'):
+    train, test = pickle.load(open(file, 'rb+'))
     
     train_set = {}
     item_set = set()
@@ -36,3 +36,7 @@ def deal_train(file=''):
         item_set.add(iid)
     item_len = item_set.size()    
     return train_set, test, item_len
+
+
+if __name__ == "__main__":
+    deal_train()
