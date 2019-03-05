@@ -58,12 +58,15 @@ class UserCF:
 
     
     def recommend(self, uid):
+        '''
+        获得用户uid的推荐得分列表
+        '''
         watch_item = self.train.get(uid, set())
-        vector_rank = np.zeros(self.item_len)
+        vector_rank = np.zeros((self.item_len, 1), dtype=np.float32)
 
         # 先对用户的相似性列表排序
         sim_list = self.user_sim.get(uid, {})
-        sorted_sim = sorted(sim_list.items(), key=lambda x:x[1], reverse=False)
+        sorted_sim = sorted(sim_list.items(), key=lambda x:x[1], reverse=True)[:self.k]
         del sim_list
 
         for v,sim_val in sorted_sim:
@@ -72,4 +75,22 @@ class UserCF:
                     continue
                 vector_rank[item-1] += sim_val
 
-        return np.sort(vector_rank)
+        return np.sort(vector_rank)[:self.topn]
+
+
+    def get_score(self):
+        '''
+        获得训练集所有用户的推荐得分
+        '''
+        recommend_score = {}
+        for user in self.train:
+            recommend_score[user] = self.recommend(user)
+        return recommend_score
+
+
+    def get_item_score(self):
+        '''
+        获得训练集的所有item的得分
+        '''
+        item_socre = np.zeros((self.item_len, 1), np.float32)
+    
