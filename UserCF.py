@@ -116,7 +116,11 @@ def degree_predict(train, test, item_degree, item_socre):
     '''
 
 
-
+def auc(train, test, n=50000):
+    '''
+    计算auc
+    
+    '''
 
 if __name__ == "__main__":
     trainset, test, item_len = deal_train() 

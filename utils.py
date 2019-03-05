@@ -26,9 +26,9 @@ def deal_train(file='./data/delicious/data.pkl'):
     train_set = {}
     item_set = set()
     for idx in train.index:
-        uid = train.iloc[idx, 0]
-        iid = train.iloc[idx, 1]
-#         date = train.iloc[idx, 2]    暂时不考虑时间
+        uid = train.loc[idx, 0]
+        iid = train.loc[idx, 1]
+#         date = train.loc[idx, 2]    暂时不考虑时间
         if uid in train_set:
             train_set[uid].add(iid)
         else:
@@ -36,7 +36,3 @@ def deal_train(file='./data/delicious/data.pkl'):
         item_set.add(iid)
     item_len = len(item_set)    
     return train_set, test, item_len
-
-
-if __name__ == "__main__":
-    deal_train()
