@@ -13,7 +13,7 @@ class UserCF:
     '''
     基于用户的协同过滤
     '''
-    def __init__(self, train, test, item_len, topn=10, k=10):
+    def __init__(self, train, test, item_len, topn=100, k=10):
         self.train = train
         self.test = test
         self.item_len = item_len
@@ -98,7 +98,14 @@ class UserCF:
             recommend_score[user] = self.recommend(user)
         return recommend_score
 
+    def cf_train(self):
+        '''
+        cf算法调用逻辑
+        '''
+        self.cal_sim()
+        return self.get_score()
 
+        
 def get_item_score(user_degree, recommend_score, item_len):
     '''
     获得训练集的所有item的得分
@@ -122,5 +129,13 @@ def auc(train, test, n=50000):
     
     '''
 
+def accuracy(train, test):
+    '''
+    '''
+
 if __name__ == "__main__":
     trainset, test, item_len = deal_train() 
+    cf = UserCF(trainset, test, item_len)
+    recommend_score = cf.cf_train()
+    user_degree = cf.cal_user_degree()
+    get_item_score(user_degree, recommend_score, item_len)
