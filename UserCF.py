@@ -129,7 +129,7 @@ def auc(train, test, n=50000):
     
     '''
 
-def accuracy(train, test):
+def accuracy(test, item_score):
     '''
     '''
 
@@ -138,4 +138,6 @@ if __name__ == "__main__":
     cf = UserCF(trainset, test, item_len)
     recommend_score = cf.cf_train()
     user_degree = cf.cal_user_degree()
-    get_item_score(user_degree, recommend_score, item_len)
+    item_degree = cf.cal_item_degree()
+    item_score = get_item_score(user_degree, recommend_score, item_len)
+    
