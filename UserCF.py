@@ -8,6 +8,7 @@ Created on 2019年3月2日
 
 from utils import *
 import numpy as np
+from matplotlib import pyplot as plt
 
 class UserCF:
     '''
@@ -116,28 +117,62 @@ def get_item_score(user_degree, recommend_score, item_len):
         item_socre += recommend_score[user] *user_degree[user]
     return item_socre
 
-
-def degree_predict(train, test, item_degree, item_socre):
+#舍弃了
+def get_item_degree_distribute(cf):
     '''
-    预测训练集中degree相同的item，预测它们未来的degree高低
+    获取item的度分布信息，分析数据  
     '''
+    item_degrees = cf.cal_item_degree()
+# item_degrees数据结构：key:itemid, value:item degree
+    degreedist = {}
+    for _,degree in item_degrees.items():
+        if degree not in degreedist:
+            degreedist[degree] = 0
+        degreedist[degree] += 1
+    return degreedist
+
+def degree_item_map(cf):
+    '''
+    建立degree-item倒排表
+    '''
+    item_degrees = cf.cal_item_degree()
+    degreedistrev = {} 
+    for iid, degree in item_degrees.items():
+        if degree not in degreedistrev:
+            degreedistrev[degree] = set()
+        degreedistrev[degree].add(iid)
+    return degreedistrev
 
 
-def auc(train, test, n=50000):
+def accuracy(trainset_degrees, degreedistrev, test, item_score):
     '''
-    计算auc
+    评估算法性能
+    '''
+
+    # test集合数据结构：uid, iid, date(date不需要)
+    # 统计测试集的item度信息
+    itemdegree_map = {}
+    for row in test:
+        uid,iid = row[0],row[1]
+        if iid not in itemdegree_map:
+            itemdegree_map[iid] = 0
+        # 这里暂时不考虑重复行记录
+        itemdegree_map[iid] += 1
     
-    '''
-
-def accuracy(test, item_score):
-    '''
-    '''
+    # 对于训练集中度相同的item，获得他们的未来度信息
+    for degree, itemset in degreedistrev.items():
+        if degree < 2:
+            continue
+        for item1 in itemset:
+            for item2 in itemset:
+                if item1 == item2:
 
 if __name__ == "__main__":
     trainset, test, item_len = deal_train() 
     cf = UserCF(trainset, test, item_len)
-    recommend_score = cf.cf_train()
-    user_degree = cf.cal_user_degree()
-    item_degree = cf.cal_item_degree()
-    item_score = get_item_score(user_degree, recommend_score, item_len)
+    # get_item_degree_distribute(cf)
+    # recommend_score = cf.cf_train()
+    # user_degree = cf.cal_user_degree()
+    # item_degree = cf.cal_item_degree()
+    # item_score = get_item_score(user_degree, recommend_score, item_len)
     
