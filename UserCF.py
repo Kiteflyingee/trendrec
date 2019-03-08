@@ -139,12 +139,12 @@ def degree_item_map(cf):
     degreedistrev = {} 
     for iid, degree in item_degrees.items():
         if degree not in degreedistrev:
-            degreedistrev[degree] = set()
-        degreedistrev[degree].add(iid)
+            degreedistrev[degree] = []
+        degreedistrev[degree].append(iid)
     return degreedistrev
 
 
-def accuracy(trainset_degrees, degreedistrev, test, item_score):
+def accuracy(degreedistrev, test, item_score):
     '''
     评估算法性能
     '''
@@ -160,19 +160,30 @@ def accuracy(trainset_degrees, degreedistrev, test, item_score):
         itemdegree_map[iid] += 1
     
     # 对于训练集中度相同的item，获得他们的未来度信息
+    hit = 0
+    total = 0
     for degree, itemset in degreedistrev.items():
         if degree < 2:
             continue
-        for item1 in itemset:
-            for item2 in itemset:
-                if item1 == item2:
+        for i in range(0, len(itemset)):
+            for j in range(i, len(itemset)):
+                itemi, itemj = itemset[i], itemset[j]
+                sign_predict = item_score[itemi] - item_score[itemj]
+                sign_label = itemdegree_map[itemi] - itemdegree_map[itemj]
+                # 如果两个符号相同，则说明判断正确， 为0的情况，判断是否都是0（或者跳过）
+                if sign_label * sign_predict >= 0:
+                    hit += 1
+                total += 1   
+    return 1.0 * hit / total
 
 if __name__ == "__main__":
     trainset, test, item_len = deal_train() 
     cf = UserCF(trainset, test, item_len)
     # get_item_degree_distribute(cf)
-    # recommend_score = cf.cf_train()
-    # user_degree = cf.cal_user_degree()
+    degreedistrev = degree_item_map(cf)
+    recommend_score = cf.cf_train()
+    user_degree = cf.cal_user_degree()
     # item_degree = cf.cal_item_degree()
-    # item_score = get_item_score(user_degree, recommend_score, item_len)
-    
+    item_score = get_item_score(user_degree, recommend_score, item_len)
+    acc = accuracy(degreedistrev, test, item_score)
+    print("acc", acc)
