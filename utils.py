@@ -29,10 +29,9 @@ def deal_train(file='./data/delicious/data.pkl'):
         uid = train.loc[idx, 0]
         iid = train.loc[idx, 1]
 #         date = train.loc[idx, 2]    暂时不考虑时间
-        if uid in train_set:
-            train_set[uid].add(iid)
-        else:
+        if uid not in train_set:
             train_set[uid] = set()
+        train_set[uid].add(iid)
         item_set.add(iid)
     item_len = len(item_set)    
     return train_set, test, item_len

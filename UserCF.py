@@ -114,7 +114,7 @@ def get_item_score(user_degree, recommend_score, item_len):
     item_socre = np.zeros((item_len, 1), np.float32)
 
     for user in recommend_score:
-        item_socre += recommend_score[user] *user_degree[user]
+        item_socre += recommend_score[user] * user_degree[user]
     return item_socre
 
 #舍弃了
@@ -177,7 +177,7 @@ def accuracy(degreedistrev, test, item_score):
     return 1.0 * hit / total
 
 if __name__ == "__main__":
-    trainset, test, item_len = deal_train() 
+    trainset, test, item_len = deal_train(r'./data/delicious/data_test.pkl') 
     cf = UserCF(trainset, test, item_len)
     # get_item_degree_distribute(cf)
     degreedistrev = degree_item_map(cf)
