@@ -15,7 +15,7 @@ class UserCF:
     '''
     基于用户的协同过滤
     '''
-    def __init__(self, train, test, item_len, topn=100, k=100):
+    def __init__(self, train, test, item_len, topn=10, k=100):
         self.train = train
         self.test = test
         self.item_len = item_len
@@ -76,11 +76,13 @@ class UserCF:
         '''
         获得用户uid的推荐得分列表
         return:
-            vector_rank:向量，顺序存储对所有item的预测打分
+            # vector_rank:向量，顺序存储对所有item的预测打分 np向量(item_len,)
+            rank_item:字典，key:itemid value:item score
+            sorted_item: (itemid, score) topn
         '''
         watch_item = self.train.get(uid, set())
-        vector_rank = np.zeros(self.item_len, dtype=np.float32)
-
+        rank_item = {}
+    
         # 先对用户的相似性列表排序
         sim_list = self.user_sim.get(uid, {})
         sorted_sim = sorted(sim_list.items(), key=lambda x:x[1], reverse=True)[:self.k]
@@ -90,18 +92,15 @@ class UserCF:
             for item in self.train.get(v, {}):
                 if item in watch_item:
                     continue
-                vector_rank[item-1] += sim_val
-        
-        idx = [i+1 for i in range(0, self.item_len)]
-        scores = pd.Series(data=vector_rank, index=idx)
-        scores = scores.sort_values(ascending=False)[:self.topn]
-        # 把scores重新处理成为numpy向量
-        # 重新创建得分向量
-        vector_rank = np.zeros(self.item_len, dtype=np.float32)
-        for idx in scores.index:
-            # 把有数据的填充
-            vector_rank[idx-1] = scores.loc[idx]
-        return vector_rank
+                rank_item.setdefault(item, 0)
+                rank_item[item] += sim_val
+        # 这里暂时不用numpy向量，存在冷启动        
+        # vector_rank = np.zeros(self.item_len, dtype=np.float32)
+        # for iid in rank_item:
+        #     # 把有数据的填充
+        #     vector_rank[iid-1] = rank_item[iid]
+        sorted_item = sorted(rank_item.items(), key=lambda x:x[1], reverse=True)[:self.topn]
+        return sorted_item
 
 
     def get_score(self):
@@ -124,12 +123,21 @@ class UserCF:
 def get_item_score(user_degree, recommend_score, item_len):
     '''
     获得训练集的所有item的得分
+    Return:
+        item_score: dict  key itemid
+                            value itemscore
+                            不是所有item都一定有得分的，只有在推荐列表的时候会加分，所有后面使用get(id, 0)默认值方式
     '''
-    item_socre = np.zeros(item_len, np.float32)
+    # item_socre = np.zeros(item_len, np.float32)
+    item_score = {}
     for user in recommend_score:
         # 这里使用矩阵运算
-        item_socre += recommend_score[user] * user_degree[user]
-    return item_socre
+        recommend_score_single = recommend_score[user]
+        for element in recommend_score_single:
+            itemid,score = element
+            item_score.setdefault(itemid, 0)
+            item_score[itemid] += score
+    return item_score
 
 #舍弃了
 def get_item_degree_distribute(cf):
@@ -166,8 +174,8 @@ def accuracy(degreedistrev, test, item_score):
     # test集合数据结构：uid, iid, date(date不需要)
     # 统计测试集的item度信息
     itemdegree_map = {}
-    for row in test:
-        uid, iid = row[0],row[1]
+    for idx in range(0, test.shape[0]):
+        iid = test.iloc[idx][1]
         if iid not in itemdegree_map:
             itemdegree_map[iid] = 0
         # 这里暂时不考虑重复行记录
@@ -184,8 +192,10 @@ def accuracy(degreedistrev, test, item_score):
                 # 获得item的编号,从1开始
                 itemi, itemj = itemset[i], itemset[j]
                 # item_score index 从0开始，item对应得分索引为itemid-1
-                sign_predict = item_score[itemi-1] - item_score[itemj-1]
-                sign_label = itemdegree_map[itemi] - itemdegree_map[itemj]
+                if itemi == itemj:
+                    continue
+                sign_predict = item_score.get(itemi, 0) - item_score.get(itemj, 0)
+                sign_label = itemdegree_map.get(itemi, 0) - itemdegree_map.get(itemj, 0)
                 # 如果两个符号相同，则说明判断正确， 为0的情况，判断是否都是0（或者跳过）
                 if sign_label * sign_predict >= 0:
                     hit += 1
@@ -193,7 +203,7 @@ def accuracy(degreedistrev, test, item_score):
     return 1.0 * hit / total
 
 if __name__ == "__main__":
-    trainset, test, item_len = utils.deal_train(r'./data/delicious/data_test.pkl') 
+    trainset, test, item_len = utils.deal_train(r'./data/delicious/data.pkl') 
     cf = UserCF(trainset, test, item_len)
     # get_item_degree_distribute(cf)
     degreedistrev = degree_item_map(cf)
