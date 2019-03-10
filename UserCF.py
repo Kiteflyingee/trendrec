@@ -6,15 +6,16 @@ Created on 2019年3月2日
 '''
 
 
-from utils import *
+import utils
 import numpy as np
 from matplotlib import pyplot as plt
+import pandas as pd
 
 class UserCF:
     '''
     基于用户的协同过滤
     '''
-    def __init__(self, train, test, item_len, topn=100, k=10):
+    def __init__(self, train, test, item_len, topn=100, k=100):
         self.train = train
         self.test = test
         self.item_len = item_len
@@ -46,7 +47,7 @@ class UserCF:
         return self.item_degree
                                                 
                                                 
-    def cal_sim(self):
+    def similarity(self):
         '''
         统计的训练集的用户的相似度信息
         在训练集中的用户两两求相似性
@@ -60,7 +61,9 @@ class UserCF:
                         v in self.user_sim[u]:
                        continue
                 else:
-                    sim = cal_sim(u, v)
+                    u_buy = utils.deal_buy(self.train[u], self.item_len)
+                    v_buy = utils.deal_buy(self.train[v], self.item_len)   
+                    sim = utils.cal_sim(u_buy, v_buy)
                     self.user_sim.setdefault(u, {})
                     self.user_sim.setdefault(v, {})
                     self.user_sim[u][v] = sim
@@ -72,9 +75,11 @@ class UserCF:
     def recommend(self, uid):
         '''
         获得用户uid的推荐得分列表
+        return:
+            vector_rank:向量，顺序存储对所有item的预测打分
         '''
         watch_item = self.train.get(uid, set())
-        vector_rank = np.zeros((self.item_len, 1), dtype=np.float32)
+        vector_rank = np.zeros(self.item_len, dtype=np.float32)
 
         # 先对用户的相似性列表排序
         sim_list = self.user_sim.get(uid, {})
@@ -86,8 +91,17 @@ class UserCF:
                 if item in watch_item:
                     continue
                 vector_rank[item-1] += sim_val
-
-        return np.sort(vector_rank)[:self.topn]
+        
+        idx = [i+1 for i in range(0, self.item_len)]
+        scores = pd.Series(data=vector_rank, index=idx)
+        scores = scores.sort_values(ascending=False)[:self.topn]
+        # 把scores重新处理成为numpy向量
+        # 重新创建得分向量
+        vector_rank = np.zeros(self.item_len, dtype=np.float32)
+        for idx in scores.index:
+            # 把有数据的填充
+            vector_rank[idx-1] = scores.loc[idx]
+        return vector_rank
 
 
     def get_score(self):
@@ -103,7 +117,7 @@ class UserCF:
         '''
         cf算法调用逻辑
         '''
-        self.cal_sim()
+        self.similarity()
         return self.get_score()
 
         
@@ -111,9 +125,9 @@ def get_item_score(user_degree, recommend_score, item_len):
     '''
     获得训练集的所有item的得分
     '''
-    item_socre = np.zeros((item_len, 1), np.float32)
-
+    item_socre = np.zeros(item_len, np.float32)
     for user in recommend_score:
+        # 这里使用矩阵运算
         item_socre += recommend_score[user] * user_degree[user]
     return item_socre
 
@@ -153,7 +167,7 @@ def accuracy(degreedistrev, test, item_score):
     # 统计测试集的item度信息
     itemdegree_map = {}
     for row in test:
-        uid,iid = row[0],row[1]
+        uid, iid = row[0],row[1]
         if iid not in itemdegree_map:
             itemdegree_map[iid] = 0
         # 这里暂时不考虑重复行记录
@@ -167,8 +181,10 @@ def accuracy(degreedistrev, test, item_score):
             continue
         for i in range(0, len(itemset)):
             for j in range(i, len(itemset)):
+                # 获得item的编号,从1开始
                 itemi, itemj = itemset[i], itemset[j]
-                sign_predict = item_score[itemi] - item_score[itemj]
+                # item_score index 从0开始，item对应得分索引为itemid-1
+                sign_predict = item_score[itemi-1] - item_score[itemj-1]
                 sign_label = itemdegree_map[itemi] - itemdegree_map[itemj]
                 # 如果两个符号相同，则说明判断正确， 为0的情况，判断是否都是0（或者跳过）
                 if sign_label * sign_predict >= 0:
@@ -177,7 +193,7 @@ def accuracy(degreedistrev, test, item_score):
     return 1.0 * hit / total
 
 if __name__ == "__main__":
-    trainset, test, item_len = deal_train(r'./data/delicious/data_test.pkl') 
+    trainset, test, item_len = utils.deal_train(r'./data/delicious/data_test.pkl') 
     cf = UserCF(trainset, test, item_len)
     # get_item_degree_distribute(cf)
     degreedistrev = degree_item_map(cf)

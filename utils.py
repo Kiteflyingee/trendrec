@@ -18,7 +18,16 @@ def cal_sim(vecA, vecB):
     denom = np.linalg.norm(vecA) * np.linalg.norm(vecB)
     
     return dot_product / denom 
-    
+
+def deal_buy(itemset, itemlen):
+    '''
+    把用户在训练集中item的set集合转换为numpy向量
+    '''    
+#    这里长度+5000为处理冷启动，只是用于计算相似度，所以增加长度不影响
+    vec = np.zeros(itemlen+5000, np.float32)
+    for iid in itemset:
+        vec[iid-1] = 1
+    return vec
     
 def deal_train(file='./data/delicious/data.pkl'):
     train, test = pickle.load(open(file, 'rb+'))
