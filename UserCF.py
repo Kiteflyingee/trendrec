@@ -15,7 +15,7 @@ class UserCF:
     '''
     基于用户的协同过滤
     '''
-    def __init__(self, train, test, item_len, topn=10, k=100):
+    def __init__(self, train, test, item_len, topn=100, k=100):
         self.train = train
         self.test = test
         self.item_len = item_len
