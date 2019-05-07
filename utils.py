@@ -30,6 +30,9 @@ def deal_buy(itemset, itemlen):
     return vec
     
 def deal_train(file='./data/delicious/data.pkl'):
+    '''
+    把训练集改为map格式(字典形式),key为用户id，value为item id
+    '''
     train, test = pickle.load(open(file, 'rb+'))
     
     train_set = {}
