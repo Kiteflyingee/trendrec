@@ -11,7 +11,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import pandas as pd
 import time
-
+import pickle
 
 class UserCF:
     '''
@@ -239,7 +239,12 @@ def get_test_degree(testset):
         test_item_degree[itemid] = degree + 1
     return test_item_degree
 
-def trend_predict(item_score, Ndegree_items,test_item_degree, method='pearson'):
+def trend_predict(item_score, 
+                    Ndegree_items, 
+                    test_item_degree, 
+                    train_itemset, 
+                    test_itemset, 
+                    method='pearson'):
     '''
     这是负责流行度预测，对对应Ndegree的item set生成训练集的流行度推荐列表
     并整理test set里真实的流行度排序
@@ -265,6 +270,10 @@ def trend_predict(item_score, Ndegree_items,test_item_degree, method='pearson'):
         score_map = {}
         test_degree_map = {}
         for item in Ndegree_items[degree]:
+            # 如果这个item不是同时在训练集和测试集里面出现的
+            if (item not in train_itemset) or (item not in test_itemset):
+                continue 
+
             score_map[item] = item_score[item]
             test_degree_map[item] = test_item_degree[item]
 
@@ -273,17 +282,27 @@ def trend_predict(item_score, Ndegree_items,test_item_degree, method='pearson'):
         corr_score[degree] = rec_series[degree].corr(real_series[degree], method=method)
     return corr_score
     
-
-
-
+def stat_train_test_item(dataset):
+    '''
+    分别统计训练集中出现的item集合和
+    '''
+    itemset = set()
+    for row in dataset.iterrows():
+        itemset.add(row[1][1])
+    return itemset
 
 if __name__ == "__main__":
+    train, test = pickle.load(open(r'./data/movielens_data.pkl', 'rb+'))
+    train_itemset = stat_train_test_item(train)
+    test_itemset = stat_train_test_item(test)
+
     trainset, test, item_len = utils.deal_train(r'./data/movielens_data.pkl')
     cf = UserCF(trainset, test, item_len)
     degreedistrev = degree_item_map(cf)
     recommend_score = cf.cf_train()
     user_degree = cf.cal_user_degree()
-    item_score = get_item_score(user_degree, recommend_score, item_len)
+    item_score = get_item_score(user_degree, recommend_score, item_len, our_lambda=1)
     Ndegree_items = getNdegree_items(degreedistrev)
     test_item_degree = get_test_degree(test)
-    corr_score = trend_predict(item_score, Ndegree_items,test_item_degree, method='pearson')
+    corr_score = trend_predict(item_score, Ndegree_items,test_item_degree, 
+                                train_itemset, test_itemset, method='pearson')
