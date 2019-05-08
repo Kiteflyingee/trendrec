@@ -129,8 +129,7 @@ class UserCF:
         print('calculate recommender score. cost {:.2f}s'.format(
             time.time()-start))
         return score
-
-
+    
 def get_item_score(user_degree, recommend_score, item_len, our_lambda=1):
     '''
     获得训练集的所有item的得分
@@ -143,12 +142,12 @@ def get_item_score(user_degree, recommend_score, item_len, our_lambda=1):
     item_score = {}
     for user in recommend_score:
         # 这里使用矩阵运算, 乘上user的degree作为权重
-        recommend_score_single = recommend_score[user] * \
-            pow(user_degree[user], our_lambda)
+        recommend_score_single = recommend_score[user]
+        weight = pow(user_degree[user], our_lambda)
         for element in recommend_score_single:
             itemid, score = element
             item_score.setdefault(itemid, 0)
-            item_score[itemid] += score
+            item_score[itemid] += score * weight
     return item_score
 
 
@@ -217,15 +216,74 @@ def accuracy(degreedistrev, test, item_score):
                 total += 1
     return 1.0 * hit / total
 
+# 一个附加的方法，来获得最小N个度的item set
+def getNdegree_items(degree_item_map, N=10):
+    '''
+    获得训练集中N个最低degree的item集合
+    返回 dict
+    key为degree ， value为该degree的item set
+    '''
+    Ndegree_items = {}
+    for i in range(1, N+1):
+        itemset = degree_item_map[i]
+        Ndegree_items[i] = itemset
+    return Ndegree_items
+
+# 获得测试集中的item-degree map
+def get_test_degree(testset):
+
+    test_item_degree = {}
+    for idx in range(0, testset.shape[0]):
+        itemid = testset.iloc[idx][1]
+        degree = test_item_degree.get(itemid,0)
+        test_item_degree[itemid] = degree + 1
+    return test_item_degree
+
+def trend_predict(item_score, Ndegree_items,test_item_degree, method='pearson'):
+    '''
+    这是负责流行度预测，对对应Ndegree的item set生成训练集的流行度推荐列表
+    并整理test set里真实的流行度排序
+
+    :param 
+        item_score:  dict类型，推荐算法给出的item的推荐得分
+        Ndegree_items： dict类型， key=degree value=item set
+        test_item_degree: dict类型,test set 中item的度map
+        method: corr计算指标
+                pearson : standard correlation coefficient
+                kendall : Kendall Tau correlation coefficient
+                spearman : Spearman rank correlation
+                callable: callable with input two 1d ndarray
+                            and returning a float
+    :return 
+        平均相关性得分
+    '''
+    rec_series = {}
+    real_series = {}
+    corr_score = {}
+    for degree in Ndegree_items:
+        # 遍历每个degree的itemset
+        score_map = {}
+        test_degree_map = {}
+        for item in Ndegree_items[degree]:
+            score_map[item] = item_score[item]
+            test_degree_map[item] = test_item_degree[item]
+
+        rec_series[degree] = pd.Series(data=score_map)
+        real_series[degree] = pd.Series(data=test_degree_map)
+        corr_score[degree] = rec_series[degree].corr(real_series[degree], method=method)
+    return corr_score
+    
+
+
+
 
 if __name__ == "__main__":
-    trainset, test, item_len = utils.deal_train(r'./data/delicious/data.pkl')
+    trainset, test, item_len = utils.deal_train(r'./data/movielens_data.pkl')
     cf = UserCF(trainset, test, item_len)
-    # get_item_degree_distribute(cf)
     degreedistrev = degree_item_map(cf)
     recommend_score = cf.cf_train()
     user_degree = cf.cal_user_degree()
-    # item_degree = cf.cal_item_degree()
     item_score = get_item_score(user_degree, recommend_score, item_len)
-    acc = accuracy(degreedistrev, test, item_score)
-    print("acc", acc)
+    Ndegree_items = getNdegree_items(degreedistrev)
+    test_item_degree = get_test_degree(test)
+    corr_score = trend_predict(item_score, Ndegree_items,test_item_degree, method='pearson')
