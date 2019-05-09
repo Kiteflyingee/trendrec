@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 import pandas as pd
 import time
 import pickle
+from tqdm import tqdm
 
 class UserCF:
     '''
@@ -56,7 +57,7 @@ class UserCF:
         '''
         self.user_sim = {}
 
-        for u in self.train:
+        for u in tqdm(self.train):
             for v in self.train:
                 #                 如果这两个用户计算过相似性
                 if u == v:
@@ -111,7 +112,8 @@ class UserCF:
         获得训练集所有用户的推荐得分
         '''
         recommend_score = {}
-        for user in self.train:
+        print('计算推荐得分')
+        for user in tqdm(self.train):
             recommend_score[user] = self.recommend(user)
         return recommend_score
 
@@ -163,6 +165,8 @@ def get_item_degree_distribute(cf):
         if degree not in degreedist:
             degreedist[degree] = 0
         degreedist[degree] += 1
+    plt.plot(degreedist)
+    plt.show()
     return degreedist
 
 
@@ -217,7 +221,7 @@ def accuracy(degreedistrev, test, item_score):
     return 1.0 * hit / total
 
 # 一个附加的方法，来获得最小N个度的item set
-def getNdegree_items(degree_item_map, N=10):
+def getNdegree_items(degree_item_map, N=20):
     '''
     获得训练集中N个最低degree的item集合
     返回 dict
@@ -265,16 +269,18 @@ def trend_predict(item_score,
     rec_series = {}
     real_series = {}
     corr_score = {}
-    for degree in Ndegree_items:
+    print('trend predict.')
+    for degree in (Ndegree_items):
         # 遍历每个degree的itemset
         score_map = {}
         test_degree_map = {}
         for item in Ndegree_items[degree]:
             # 如果这个item不是同时在训练集和测试集里面出现的
-            if (item not in train_itemset) or (item not in test_itemset):
-                continue 
+            # 注释掉，因为会出现全为0得分的情况，这样子corr为nan
+            # if (item not in train_itemset) or (item not in test_itemset):
+            #     continue 
 
-            score_map[item] = item_score[item]
+            score_map[item] = item_score.get(item, 0)
             test_degree_map[item] = test_item_degree[item]
 
         rec_series[degree] = pd.Series(data=score_map)
@@ -295,14 +301,18 @@ if __name__ == "__main__":
     train, test = pickle.load(open(r'./data/movielens_data.pkl', 'rb+'))
     train_itemset = stat_train_test_item(train)
     test_itemset = stat_train_test_item(test)
-
     trainset, test, item_len = utils.deal_train(r'./data/movielens_data.pkl')
     cf = UserCF(trainset, test, item_len)
     degreedistrev = degree_item_map(cf)
+
+    get_item_degree_distribute(cf)
+    print('start cf train.')
     recommend_score = cf.cf_train()
     user_degree = cf.cal_user_degree()
     item_score = get_item_score(user_degree, recommend_score, item_len, our_lambda=1)
     Ndegree_items = getNdegree_items(degreedistrev)
     test_item_degree = get_test_degree(test)
+    print('start trend predict.')
     corr_score = trend_predict(item_score, Ndegree_items,test_item_degree, 
                                 train_itemset, test_itemset, method='pearson')
+    print(corr_score)
