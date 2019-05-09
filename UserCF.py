@@ -117,7 +117,7 @@ class UserCF:
         '''
         recommend_score = {}
         print('计算推荐得分')
-        for user in tqdm(self.train):
+        for user in tqdm(self.train, ascii=True ):
             recommend_score[user] = self.recommend(user)
         return recommend_score
 
