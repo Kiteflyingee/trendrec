@@ -285,7 +285,7 @@ def trend_predict(item_score,
             #     continue 
 
             score_map[item] = item_score.get(item, 0)
-            test_degree_map[item] = test_item_degree[item]
+            test_degree_map[item] = test_item_degree.get(item, 0)
 
         rec_series[degree] = pd.Series(data=score_map)
         real_series[degree] = pd.Series(data=test_degree_map)
