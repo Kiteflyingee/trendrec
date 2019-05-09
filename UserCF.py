@@ -56,23 +56,27 @@ class UserCF:
         在训练集中的用户两两求相似性
         '''
         self.user_sim = {}
-
-        for u in tqdm(self.train):
-            for v in self.train:
-                #                 如果这两个用户计算过相似性
-                if u == v:
-                    continue
-                if (u in self.user_sim and v in self.user_sim[u]) or \
-                        (v in self.user_sim and u in self.user_sim[v]):
-                    continue
-                else:
-                    u_buy = utils.deal_buy(self.train[u], self.item_len)
-                    v_buy = utils.deal_buy(self.train[v], self.item_len)
-                    sim = utils.cal_sim(u_buy, v_buy)
-                    self.user_sim.setdefault(u, {})
-                    self.user_sim.setdefault(v, {})
-                    self.user_sim[u][v] = sim
-                    self.user_sim[v][u] = sim
+        try:
+            with tqdm(self.train, ascii=True ) as T:
+                for u in T:
+                    for v in self.train:
+                        #                 如果这两个用户计算过相似性
+                        if u == v:
+                            continue
+                        if (u in self.user_sim and v in self.user_sim[u]) or \
+                                (v in self.user_sim and u in self.user_sim[v]):
+                            continue
+                        else:
+                            u_buy = utils.deal_buy(self.train[u], self.item_len)
+                            v_buy = utils.deal_buy(self.train[v], self.item_len)
+                            sim = utils.cal_sim(u_buy, v_buy)
+                            self.user_sim.setdefault(u, {})
+                            self.user_sim.setdefault(v, {})
+                            self.user_sim[u][v] = sim
+                            self.user_sim[v][u] = sim
+        except KeyboardInterrupt:
+            T.close()
+            raise
         return self.user_sim
 
     def recommend(self, uid):
@@ -165,7 +169,7 @@ def get_item_degree_distribute(cf):
         if degree not in degreedist:
             degreedist[degree] = 0
         degreedist[degree] += 1
-    plt.plot(degreedist)
+    plt.bar(degreedist.keys(), degreedist.values())
     plt.show()
     return degreedist
 
@@ -305,7 +309,7 @@ if __name__ == "__main__":
     cf = UserCF(trainset, test, item_len)
     degreedistrev = degree_item_map(cf)
 
-    get_item_degree_distribute(cf)
+    # get_item_degree_distribute(cf)
     print('start cf train.')
     recommend_score = cf.cf_train()
     user_degree = cf.cal_user_degree()
