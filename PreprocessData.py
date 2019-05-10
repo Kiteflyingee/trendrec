@@ -22,8 +22,8 @@ uid    iid   timestamp
 # 处理数据暂时不做下采样
 
 
-def readData(filepath, split=',', train_ratio=0.8):
 # def readData(filepath, split=',', train_ratio=0.8, sample_num=100000):
+def readData(filepath, split=',', train_ratio=0.8):
     data = pd.read_csv(filepath, sep=split, header=None,encoding='utf-8')
     # data = data.sort_values(by=2, axis=0, ascending=True)[0: sample_num]
     data = data.sort_values(by=2, axis=0, ascending=True)

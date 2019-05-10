@@ -19,7 +19,7 @@ class UserCF:
     基于用户的协同过滤
     '''
 
-    def __init__(self, train, test, item_len, topn=100, k=100):
+    def __init__(self, train, test, item_len, topn=100 , k=100):
         self.train = train
         self.test = test
         self.item_len = item_len
@@ -34,10 +34,7 @@ class UserCF:
 
         for user in self.train:
             degree = len(self.train.get(user, set()))
-            if user in self.user_degree:
-                self.user_degree[user] = degree
-            else:
-                self.user_degree[user] = 0
+            self.user_degree[user] = degree
         return self.user_degree
 
     def cal_item_degree(self):
@@ -94,21 +91,14 @@ class UserCF:
         sim_list = self.user_sim.get(uid, {})
         sorted_sim = sorted(
             sim_list.items(), key=lambda x: x[1], reverse=True)[:self.k]
-        del sim_list
 
         for v, sim_val in sorted_sim:
             for item in self.train.get(v, {}):
                 if item in watch_item:
                     continue
-                rank_item.setdefault(item, 0)
-                rank_item[item] += sim_val
-        # 这里暂时不用numpy向量，存在冷启动
-        # vector_rank = np.zeros(self.item_len, dtype=np.float32)
-        # for iid in rank_item:
-        #     # 把有数据的填充
-        #     vector_rank[iid-1] = rank_item[iid]
-        # sorted_item = sorted(rank_item.items(), key=lambda x: x[1], reverse=True)[
-        #     :self.topn]
+                raw_val = rank_item.get(item, 0)
+                rank_item[item] = raw_val + sim_val
+
         return rank_item.items()
 
     def get_score(self):
@@ -117,13 +107,17 @@ class UserCF:
         '''
         recommend_score = {}
         print('计算推荐得分')
-        for user in tqdm(self.train, ascii=True ):
+        for user in tqdm(self.train, ascii=True):
             recommend_score[user] = self.recommend(user)
         return recommend_score
 
     def cf_train(self):
         '''
         cf算法调用逻辑
+
+        :Return: score :a dict 
+                        key:userid
+                        value: a tuple (itemid, recommend score)
         '''
         start = time.time()
         self.similarity()
@@ -136,7 +130,7 @@ class UserCF:
             time.time()-start))
         return score
     
-def get_item_score(user_degree, recommend_score, item_len, our_lambda=1):
+def get_item_score(user_degree, recommend_score, item_len, our_lambda=1.0):
     '''
     获得训练集的所有item的得分
     Return:
@@ -152,8 +146,8 @@ def get_item_score(user_degree, recommend_score, item_len, our_lambda=1):
         weight = pow(user_degree[user], our_lambda)
         for element in recommend_score_single:
             itemid, score = element
-            item_score.setdefault(itemid, 0)
-            item_score[itemid] += score * weight
+            pre_score = item_score.get(itemid, 0)
+            item_score[itemid] = pre_score + score * weight
     return item_score
 
 
@@ -225,9 +219,9 @@ def accuracy(degreedistrev, test, item_score):
     return 1.0 * hit / total
 
 # 一个附加的方法，来获得最小N个度的item set
-def getNdegree_items(degree_item_map, N=20):
+def getNdegree_items(degree_item_map, N=150):
     '''
-    获得训练集中N个最低degree的item集合
+    获得训练集中N个最低degree的item集合  
     返回 dict
     key为degree ， value为该degree的item set
     '''
@@ -301,22 +295,37 @@ def stat_train_test_item(dataset):
         itemset.add(row[1][1])
     return itemset
 
-if __name__ == "__main__":
+
+def main(k=10,our_lambda=1,resultfile='corr_result_nok.csv'):
     train, test = pickle.load(open(r'./data/movielens_data.pkl', 'rb+'))
     train_itemset = stat_train_test_item(train)
     test_itemset = stat_train_test_item(test)
     trainset, test, item_len = utils.deal_train(r'./data/movielens_data.pkl')
     cf = UserCF(trainset, test, item_len)
     degreedistrev = degree_item_map(cf)
-
     # get_item_degree_distribute(cf)
     print('start cf train.')
     recommend_score = cf.cf_train()
     user_degree = cf.cal_user_degree()
-    item_score = get_item_score(user_degree, recommend_score, item_len, our_lambda=1)
+    item_score = get_item_score(user_degree, recommend_score, item_len, our_lambda=our_lambda)
     Ndegree_items = getNdegree_items(degreedistrev)
     test_item_degree = get_test_degree(test)
     print('start trend predict.')
     corr_score = trend_predict(item_score, Ndegree_items,test_item_degree, 
                                 train_itemset, test_itemset, method='pearson')
     print(corr_score)
+
+    with open(resultfile, 'w') as f:
+        for degree,c_score in corr_score.items(): 
+            f.write(str(degree) + ',' + str(c_score) + '\n')
+
+if __name__ == "__main__":
+
+    def frange(x, y, jump):
+        while x < y:
+            yield x
+            x += jump
+
+    for p1 in frange(-0.55, 0.5, 0.05):
+        filename = 'corr_result_lambda' + str(p1) + ".csv" 
+        main(k=1000,our_lambda=p1,resultfile=filename)
