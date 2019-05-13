@@ -33,10 +33,4 @@ def readData(filepath, split=',', train_ratio=0.8):
     test_data = data.iloc[train_len:,:]
     return train_data, test_data
     
-# if __name__ == '__main__':
-#     filepath = r'./data/delicious/delicious_subset2.txt'
-#     train_data, test_data = readData(filepath, split='\t', sample_num=50000)    
-#     pickle.dump((train_data, test_data), 
-#                 open(r'./data/delicious/data.pkl', 'wb+'))
-#     print("dump finished.")
     

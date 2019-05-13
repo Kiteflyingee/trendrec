@@ -26,6 +26,7 @@ def deal_buy(itemset, itemlen):
 #    这里长度+5000为处理冷启动，只是用于计算相似度，所以增加长度不影响
     vec = np.zeros(itemlen+5000, np.float32)
     for iid in itemset:
+        # 其实这里不需要iid-1，iid就行而且泛化性更强，可以包含id从0开始的情况
         vec[iid-1] = 1
     return vec
     

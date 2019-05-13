@@ -219,7 +219,7 @@ def accuracy(degreedistrev, test, item_score):
     return 1.0 * hit / total
 
 # 一个附加的方法，来获得最小N个度的item set
-def getNdegree_items(degree_item_map, N=150):
+def getNdegree_items(degree_item_map, N=100):
     '''
     获得训练集中N个最低degree的item集合  
     返回 dict
@@ -293,14 +293,14 @@ def stat_train_test_item(dataset):
     itemset = set()
     for row in dataset.iterrows():
         itemset.add(row[1][1])
-    return itemset
+        return itemset
 
 
-def main(k=10,our_lambda=1,resultfile='corr_result_nok.csv'):
-    train, test = pickle.load(open(r'./data/movielens_data.pkl', 'rb+'))
+def main(k=10,our_lambda=1,data_file=r'./data/movielens_data.pkl',resultfile='corr_result_nok.csv'):
+    train, test = pickle.load(open(data_file, 'rb+'))
     train_itemset = stat_train_test_item(train)
     test_itemset = stat_train_test_item(test)
-    trainset, test, item_len = utils.deal_train(r'./data/movielens_data.pkl')
+    trainset, test, item_len = utils.deal_train(data_file)
     cf = UserCF(trainset, test, item_len)
     degreedistrev = degree_item_map(cf)
     # get_item_degree_distribute(cf)
@@ -326,6 +326,8 @@ if __name__ == "__main__":
             yield x
             x += jump
 
-    for p1 in frange(-0.55, 0.5, 0.05):
-        filename = 'corr_result_lambda' + str(p1) + ".csv" 
-        main(k=1000,our_lambda=p1,resultfile=filename)
+    data_file = "./data/netflix.pkl"
+
+    for p1 in frange(1, 1.01, 0.5):
+        filename = 'nf_corr_result_lambda' + str(p1) + ".csv" 
+        main(k=1000,our_lambda=p1, data_file=data_file, resultfile=filename)
