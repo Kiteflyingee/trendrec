@@ -12,7 +12,7 @@ import gc
 import time
 from sklearn.metrics.pairwise import cosine_similarity
 from PreprocessData import readData
-
+from tqdm import tqdm
 
 
 
@@ -22,9 +22,7 @@ def process_data(trainset, testset):
     '''
     把切分的数据集重新整理数据结构
     '''
-    
     df = trainset.append(testset)
-    df.rename(colunms={0:'uid',1:'iid'})
     usernum = df.uid.max()+1 #这里多建一列，以防user,item id从1开始
     itemnum = df.iid.max()+1
     
@@ -66,13 +64,13 @@ def process_data(trainset, testset):
 
 
     
-def massDiffisionForOne(train, user, udegree, idegree, K=1000):
+def massDiffisionForOne(train, user, udegree, idegree, _lambda=1, K=1000):
     '''
     对单用户做MassDiffusion过程
     '''
     itemnum = np.shape(train)[1]
     # 这里的usernum和itemnum都是在原始上加1(在id从1开始的数据集，id从0开始的就没有这种情况)
-    item_score = np.zeros((itemnum,1),dtype=np.float32)
+    item_score = np.zeros(itemnum,dtype=np.float32)
     user_score = secondMass(train, idegree, user)
     #kNN,选择user端得分最高的K个user进行第三次Mass操作
     user_score = pd.Series(user_score)
@@ -84,6 +82,8 @@ def massDiffisionForOne(train, user, udegree, idegree, K=1000):
         u_itemscore=thirdMass(train, udegree, user_score, uid)
         for item in u_itemscore.keys():
             item_score[item] = u_itemscore[item] + item_score[item]
+    # 这个user对最终item score得分贡献*该user的度的lambda次方
+    item_score = item_score * pow(udegree.get(user, 0.0), _lambda)
     return item_score
 
 
@@ -105,7 +105,7 @@ def secondMass(train, idegree, uid):
     for item in items:
 #        找出买过这个item的所有user，id从1开始也不影响
         users=np.nonzero(train[:, item])[0]
-#        每个user打分为,users/degree
+#        每个user打分为,users/degree,这个item不可能不在训练集中
         score = 1.0 / idegree[item]
         for user in users:
             user_score[user] = user_score[user] + score
@@ -125,15 +125,69 @@ def thirdMass(train, udegree, user_score, uid):
     ''' 
     items = np.nonzero(train[uid, :])[0]
     u_itemscore = {}
-    score = user_score[uid]/udegree[uid]
+    if udegree.get(uid, 0.0) != 0.0:
+        score = user_score[uid]/udegree[uid]
+    else:
+        # 如果uid不在训练集中
+        score = 0.0
     for item in items:
         u_itemscore[item] = score
     return u_itemscore
 
 
+# 一个附加的方法，来获得最小N个度的item set
+def getNdegree_items(degree_item_map, N=100):
+    '''
+    获得训练集中N个最低degree的item集合  
+    返回 dict
+    key为degree ， value为该degree的item set
+    '''
+    Ndegree_items = {}
+    for i in range(1, N+1):
+        itemset = degree_item_map[i]
+        Ndegree_items[i] = itemset
+    return Ndegree_items
 
 
 
+
+def trend_predict(item_score, 
+                    Ndegree_items, 
+                    test_item_degree, 
+                    method='pearson'):
+    '''
+    这是负责流行度预测，对对应Ndegree的item set生成训练集的流行度推荐列表
+    并整理test set里真实的流行度排序
+
+    :param 
+        item_score:  numpy数组
+        Ndegree_items： dict类型， key=degree value=item set
+        test_item_degree: series类型操作与dict基本相同
+        method: corr计算指标
+                pearson : standard correlation coefficient
+                kendall : Kendall Tau correlation coefficient
+                spearman : Spearman rank correlation
+                callable: callable with input two 1d ndarray
+                            and returning a float
+    :return 
+        平均相关性得分
+    '''
+    rec_series = {}
+    real_series = {}
+    corr_score = {}
+    print('trend predict.')
+    for degree in (Ndegree_items):
+        # 遍历每个degree的itemset
+        score_map = {}
+        test_degree_map = {}
+        for item in Ndegree_items[degree]:
+            score_map[item] = item_score[item]
+            test_degree_map[item] = test_item_degree.get(item, 0)
+
+        rec_series[degree] = pd.Series(data=score_map)
+        real_series[degree] = pd.Series(data=test_degree_map)
+        corr_score[degree] = rec_series[degree].corr(real_series[degree], method=method)
+    return corr_score
 
 
 
@@ -145,8 +199,28 @@ def exp():
     '''
     filepath = r'./data/netflix5k_result.txt'
     train_data, test_data = readData(filepath, split=',', train_ratio=0.7)    
-    train,test,udegree,idegree = process_data(train_data,test_data,0.9)
-    # for user in train.keys()
+    train_data = train_data.rename(columns={0:'uid',1:'iid'})
+    test_data = test_data.rename(columns={0:'uid',1:'iid'})
+    train, _, udegree, idegree = process_data(train_data,test_data)
+    # userid从1开始的情况
+    total_item_score = np.zeros(train.shape[1], dtype=np.float64)
+    for user in tqdm(range(1,train.shape[0]),ascii=True):
+    # userid从0开始的情况
+    # for user in range(train.shape[0]):
+        one_item_score = massDiffisionForOne(train, user, udegree, idegree, K=1000)
+        total_item_score += one_item_score
+
+    # 获得度-itemset 分布信息
+    Ndegree_items = getNdegree_items(idegree, N=150)
+    # 获得testset item度分布
+    test_item_degree = test_data.iid.value_counts()
+    corr_score = trend_predict(total_item_score, 
+                                Ndegree_items,
+                                test_item_degree, 
+                                method='pearson')
+    print(corr_score)
+
+
 
 if __name__ == '__main__':
     '''
