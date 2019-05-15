@@ -326,8 +326,8 @@ if __name__ == "__main__":
             yield x
             x += jump
 
-    data_file = "./data/movielens_data.pkl"
+    data_file = "./data/netflix.pkl"
 
-    for p1 in frange(0.7, 0.8, 0.05):
-        filename = 'ml_corr_result_lambda' + str(p1) + ".csv" 
+    for p1 in frange(0.6, 1.0, 0.1):
+        filename = 'nf_corr_result_lambda' + str(p1) + ".csv" 
         main(k=1000,our_lambda=p1, data_file=data_file, resultfile=filename)
