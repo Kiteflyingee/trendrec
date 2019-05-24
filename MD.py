@@ -71,6 +71,9 @@ def massDiffisionForOne(train, user, udegree, idegree, _lambda=1, K=1000):
     itemnum = np.shape(train)[1]
     # 这里的usernum和itemnum都是在原始上加1(在id从1开始的数据集，id从0开始的就没有这种情况)
     item_score = np.zeros(itemnum,dtype=np.float32)
+    # 处理特殊情况
+    if udegree.get(user,0.0) == 0.0:
+        return item_score
     user_score = secondMass(train, idegree, user)
     #kNN,选择user端得分最高的K个user进行第三次Mass操作
     user_score = pd.Series(user_score)

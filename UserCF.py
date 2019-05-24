@@ -12,7 +12,9 @@ from matplotlib import pyplot as plt
 import pandas as pd
 import time
 import pickle
+import os
 from tqdm import tqdm
+import threading
 
 class UserCF:
     '''
@@ -54,7 +56,7 @@ class UserCF:
         '''
         self.user_sim = {}
         try:
-            with tqdm(self.train, ascii=True ) as T:
+            with tqdm(self.train, ascii=True, ncols = 70, leave = False, unit = 'b') as T:
                 for u in T:
                     for v in self.train:
                         #                 如果这两个用户计算过相似性
@@ -69,6 +71,7 @@ class UserCF:
                             sim = utils.cal_sim(u_buy, v_buy)
                             self.user_sim.setdefault(u, {})
                             self.user_sim.setdefault(v, {})
+
                             self.user_sim[u][v] = sim
                             self.user_sim[v][u] = sim
         except KeyboardInterrupt:
@@ -107,7 +110,7 @@ class UserCF:
         '''
         recommend_score = {}
         print('计算推荐得分')
-        for user in tqdm(self.train, ascii=True):
+        for user in tqdm(self.train, ascii=True, ncols = 70, leave = False, unit = 'b'):
             recommend_score[user] = self.recommend(user)
         return recommend_score
 
@@ -120,6 +123,7 @@ class UserCF:
                         value: a tuple (itemid, recommend score)
         '''
         start = time.time()
+        print('calculate similarity.')
         self.similarity()
         print('calculate similarity finished. cost {:.2f}s'.format(
             time.time()-start))
@@ -219,7 +223,7 @@ def accuracy(degreedistrev, test, item_score):
     return 1.0 * hit / total
 
 # 一个附加的方法，来获得最小N个度的item set
-def getNdegree_items(degree_item_map, N=100):
+def getNdegree_items(degree_item_map, N=50):
     '''
     获得训练集中N个最低degree的item集合  
     返回 dict
@@ -296,7 +300,7 @@ def stat_train_test_item(dataset):
         return itemset
 
 
-def main(k=10,our_lambda=1,data_file=r'./data/movielens_data.pkl',resultfile='corr_result_nok.csv'):
+def main(k=10,our_lambda=1,data_file=r'./data/movielens_data.pkl',recommend_score_file=r'./temp/cf_score.pkl'):
     train, test = pickle.load(open(data_file, 'rb+'))
     train_itemset = stat_train_test_item(train)
     test_itemset = stat_train_test_item(test)
@@ -305,19 +309,25 @@ def main(k=10,our_lambda=1,data_file=r'./data/movielens_data.pkl',resultfile='co
     degreedistrev = degree_item_map(cf)
     # get_item_degree_distribute(cf)
     print('start cf train.')
-    recommend_score = cf.cf_train()
+    if os.path.exists(recommend_score_file):
+        # 判断cf是否训练过
+        with open(recommend_score_file,'rb') as f:
+            recommend_score = pickle.load(f) 
+    else:
+        recommend_score = cf.cf_train()
+        with open(recommend_score_file,'wb') as f:
+            pickle.dump(recommend_score, f)
+
     user_degree = cf.cal_user_degree()
     item_score = get_item_score(user_degree, recommend_score, item_len, our_lambda=our_lambda)
-    Ndegree_items = getNdegree_items(degreedistrev)
+    Ndegree_items = getNdegree_items(degreedistrev, N=1)
     test_item_degree = get_test_degree(test)
     print('start trend predict.')
     corr_score = trend_predict(item_score, Ndegree_items,test_item_degree, 
                                 train_itemset, test_itemset, method='pearson')
     print(corr_score)
-
-    with open(resultfile, 'w') as f:
-        for degree,c_score in corr_score.items(): 
-            f.write(str(degree) + ',' + str(c_score) + '\n')
+    return corr_score
+    
 
 if __name__ == "__main__":
 
@@ -326,8 +336,16 @@ if __name__ == "__main__":
             yield x
             x += jump
 
-    data_file = "./data/netflix.pkl"
-
-    for p1 in frange(0.6, 1.0, 0.1):
-        filename = 'nf_corr_result_lambda' + str(p1) + ".csv" 
-        main(k=1000,our_lambda=p1, data_file=data_file, resultfile=filename)
+    data_file = "./data/amazon.pkl"
+    # data_file = "./data/movielens.pkl"
+    
+    corr_score_list = []
+    for p1 in frange(-1.0, 1.01, 0.5):
+        corr_score = main(k=1000, our_lambda=p1, data_file=data_file)
+        corr_score_list.append(corr_score)
+        
+        resultfile = 'amazon_corr_result_lambda' + str(p1) + ".csv" 
+        with open(resultfile, 'w') as f:
+            for degree,c_score in corr_score.items(): 
+                f.write(str(degree) + ',' + str(c_score) + '\n')
+    print(corr_score_list)
