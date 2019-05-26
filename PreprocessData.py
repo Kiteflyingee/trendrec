@@ -12,6 +12,7 @@ Created on 2019年3月1日
 import numpy as np
 import pandas as pd
 import pickle
+from tqdm import tqdm
 
 '''
 delicous——sub2 文件格式
@@ -47,7 +48,7 @@ def readData(filepath, split=',', train_ratio=0.8):
         if (uid not in uid_set) or (iid not in iid_set):
             removeidx.add(idx)
             count+=1
-    train_data.drop(removeidx)
+    train_data = train_data.drop(removeidx)
     print("removenum:" ,count)
     removeidx=set()
     for idx in temp_testdf.index:
@@ -55,7 +56,43 @@ def readData(filepath, split=',', train_ratio=0.8):
         iid = temp_testdf.loc[idx, 'iid']
         if (uid not in uid_set) or (iid not in iid_set):
             removeidx.add(idx)
-    test_data.drop(removeidx)
+    test_data = test_data.drop(removeidx)
     return train_data, test_data
     
     
+
+def rerank(trainset, testset):
+    df = pd.concat([trainset,testset], ignore_index=True)  
+    df.columns = ['uid','iid','time']
+    u_unique = df.uid.unique()
+    i_unique = df.iid.unique()
+    u_id = {}
+    i_id = {}
+
+    for idx, uid in enumerate(u_unique):
+        u_id[uid] = idx
+
+    for idx, iid in enumerate(i_unique):
+        i_id[iid] = idx
+
+    for rowidx in range(len(df)):
+        uid = df.iloc[rowidx, 0]
+        iid = df.iloc[rowidx, 1]
+        time = df.iloc[rowidx, 2]
+
+    
+    new_trainset = trainset.copy()
+    for rowidx in tqdm(range(len(trainset)),ascii=True):
+        uid = trainset.iloc[rowidx, 0]
+        iid = trainset.iloc[rowidx, 1]
+        new_trainset.iloc[rowidx, 0] = u_id[uid]
+        new_trainset.iloc[rowidx, 1] = i_id[iid]
+
+    new_testset = testset.copy()
+    for rowidx in range(len(testset)):
+        uid = testset.iloc[rowidx, 0]
+        iid = testset.iloc[rowidx, 1]
+        new_testset.iloc[rowidx, 0] = u_id[uid]
+        new_testset.iloc[rowidx, 1] = i_id[iid]
+    
+    return new_trainset, new_testset

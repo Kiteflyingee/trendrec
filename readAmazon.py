@@ -8,14 +8,12 @@ def readAmazon(sample_num,split='\t',filepath='./data/Amazon/Amazon_data.txt'):
     data.insert(0, 'uid',uid)
     # 取最近的sample数据
     data = data.sort_values(by='time', axis=0, ascending=False)[0:sample_num]
-    # 舍弃按样本筛选，直接按天筛选
-    # data = data.sort_values(by='time', axis=0, ascending=False)
     # 嘗試只取前2000天(这个代码只适用与amazon)
-    # data = data[data.time > 37216]
-    data.to_csv('./data/Amazon/Amazon.csv',header=False,index=False)
+    # data = data[data.time > 37816]
+    data.to_csv('./data/Amazon/Amazon_2.csv',header=False,index=False)
 
 
-def rerank(filepath='./data/Amazon/Amazon.csv', split=','):
+def rerank(filepath='./data/Amazon/Amazon_2.csv', split=','):
     '''
        重新对amazon数据集进行排序
     '''
@@ -32,7 +30,7 @@ def rerank(filepath='./data/Amazon/Amazon.csv', split=','):
     for idx, iid in enumerate(i_unique):
         i_id[iid] = idx
 
-    with open('./data/Amazon/Amazon.txt','w') as f:
+    with open('./data/Amazon/Amazon_2.txt','w') as f:
         for rowidx in range(len(data)):
             uid = data.iloc[rowidx, 0]
             iid = data.iloc[rowidx, 1]
@@ -42,5 +40,5 @@ def rerank(filepath='./data/Amazon/Amazon.csv', split=','):
     print('finish')
 
 if __name__ == "__main__":
-    readAmazon(sample_num=50000)
+    readAmazon(sample_num=150000)
     rerank()

@@ -102,7 +102,7 @@ class UserCF:
                 raw_val = rank_item.get(item, 0)
                 rank_item[item] = raw_val + sim_val
 
-        return rank_item.items()
+        return list(rank_item.items())
 
     def get_score(self):
         '''
@@ -300,7 +300,9 @@ def stat_train_test_item(dataset):
         return itemset
 
 
-def main(k=10,our_lambda=1,data_file=r'./data/movielens_data.pkl',recommend_score_file=r'./temp/cf_score.pkl'):
+
+
+def main(k=10,our_lambda=1,data_file=r'./data/movielens_data.pkl',recommend_score_file=r'./temp/cf_score.pkl', recommend_score=None):
     train, test = pickle.load(open(data_file, 'rb+'))
     train_itemset = stat_train_test_item(train)
     test_itemset = stat_train_test_item(test)
@@ -318,15 +320,18 @@ def main(k=10,our_lambda=1,data_file=r'./data/movielens_data.pkl',recommend_scor
         with open(recommend_score_file,'wb') as f:
             pickle.dump(recommend_score, f)
 
+    # if recommend_score is None:
+    #     recommend_score = cf.cf_train()
+
     user_degree = cf.cal_user_degree()
     item_score = get_item_score(user_degree, recommend_score, item_len, our_lambda=our_lambda)
-    Ndegree_items = getNdegree_items(degreedistrev, N=1)
+    Ndegree_items = getNdegree_items(degreedistrev, N=50)
     test_item_degree = get_test_degree(test)
     print('start trend predict.')
     corr_score = trend_predict(item_score, Ndegree_items,test_item_degree, 
                                 train_itemset, test_itemset, method='pearson')
     print(corr_score)
-    return corr_score
+    return corr_score, recommend_score
     
 
 if __name__ == "__main__":
@@ -340,8 +345,9 @@ if __name__ == "__main__":
     # data_file = "./data/movielens.pkl"
     
     corr_score_list = []
-    for p1 in frange(-1.0, 1.01, 0.5):
-        corr_score = main(k=1000, our_lambda=p1, data_file=data_file)
+    recommend_score = None
+    for p1 in frange(-1.0, 1.01, 0.1):
+        corr_score,recommend_score = main(k=1000, our_lambda=p1, data_file=data_file, recommend_score=recommend_score)
         corr_score_list.append(corr_score)
         
         resultfile = 'amazon_corr_result_lambda' + str(p1) + ".csv" 
