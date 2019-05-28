@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import pickle
 from tqdm import tqdm
+import threading 
+import multiprocessing
 
 '''
 delicous——sub2 文件格式
@@ -49,14 +51,15 @@ def readData(filepath, split=',', train_ratio=0.8):
             removeidx.add(idx)
             count+=1
     train_data = train_data.drop(removeidx)
-    print("removenum:" ,count)
     removeidx=set()
     for idx in temp_testdf.index:
         uid = temp_testdf.loc[idx, 'uid']
         iid = temp_testdf.loc[idx, 'iid']
         if (uid not in uid_set) or (iid not in iid_set):
             removeidx.add(idx)
+            count+=1
     test_data = test_data.drop(removeidx)
+    print("removenum:" ,count)
     return train_data, test_data
     
     
@@ -74,12 +77,6 @@ def rerank(trainset, testset):
 
     for idx, iid in enumerate(i_unique):
         i_id[iid] = idx
-
-    for rowidx in range(len(df)):
-        uid = df.iloc[rowidx, 0]
-        iid = df.iloc[rowidx, 1]
-        time = df.iloc[rowidx, 2]
-
     
     new_trainset = trainset.copy()
     for rowidx in tqdm(range(len(trainset)),ascii=True):
@@ -96,3 +93,88 @@ def rerank(trainset, testset):
         new_testset.iloc[rowidx, 1] = i_id[iid]
     
     return new_trainset, new_testset
+
+
+def rerank_multithread(trainset, testset):
+    df = pd.concat([trainset,testset], ignore_index=True)  
+    df.columns = ['uid','iid','time']
+    u_unique = df.uid.unique()
+    i_unique = df.iid.unique()
+    u_id = {}
+    i_id = {}
+
+    for idx, uid in enumerate(u_unique):
+        u_id[uid] = idx
+
+    for idx, iid in enumerate(i_unique):
+        i_id[iid] = idx
+    
+    t1 = MyThread(trainset, u_id, i_id, 'train')
+    t2 = MyThread(testset, u_id, i_id, 'test')
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+    new_trainset = t1.result
+    new_testset = t2.result
+    return new_trainset, new_testset
+
+
+def rerank_multiprocess(trainset, testset):
+    df = pd.concat([trainset,testset], ignore_index=True)  
+    df.columns = ['uid','iid','time']
+    u_unique = df.uid.unique()
+    i_unique = df.iid.unique()
+    u_id = {}
+    i_id = {}
+
+    for idx, uid in enumerate(u_unique):
+        u_id[uid] = idx
+
+    for idx, iid in enumerate(i_unique):
+        i_id[iid] = idx
+    
+    t1 = MyProcess(trainset, u_id, i_id, 'train')
+    t2 = MyProcess(testset, u_id, i_id, 'test')
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+    new_trainset = t1.result
+    new_testset = t2.result
+    return new_trainset, new_testset
+
+class MyProcess(multiprocessing.Process):
+    def __init__(self, df, u_id, i_id, name):
+        multiprocessing.Process.__init__(self)
+        self.df = df
+        self.u_id = u_id
+        self.i_id = i_id
+        self.name = name
+
+    def run(self):
+        print ("开启进程：" + self.name + '\n')
+        self.result = processnewdf(self.df, self.u_id, self.i_id)
+        print ("退出进程：" + self.name + '\n')
+
+
+class MyThread(threading.Thread):
+    def __init__(self, df, u_id, i_id, name):
+        threading.Thread.__init__(self)
+        self.df = df
+        self.u_id = u_id
+        self.i_id = i_id
+        self.name = name
+
+    def run(self):
+        print ("开启线程：" + self.name + '\n')
+        self.result = processnewdf(self.df, self.u_id, self.i_id)
+        print ("退出线程：" + self.name + '\n')
+
+def processnewdf(df, u_id, i_id):
+    for rowidx in tqdm(range(len(df)), ascii=True):
+        uid = df.iloc[rowidx, 0]
+        iid = df.iloc[rowidx, 1]
+        df.iloc[rowidx, 0] = u_id[uid]
+        df.iloc[rowidx, 1] = i_id[iid]
+    return df

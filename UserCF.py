@@ -231,7 +231,7 @@ def getNdegree_items(degree_item_map, N=50):
     '''
     Ndegree_items = {}
     for i in range(1, N+1):
-        itemset = degree_item_map[i]
+        itemset = degree_item_map.get(i, {})
         Ndegree_items[i] = itemset
     return Ndegree_items
 
@@ -343,7 +343,8 @@ if __name__ == "__main__":
 
     data_file = "./data/amazon.pkl"
     # data_file = "./data/movielens.pkl"
-    
+    recommend_score_file=r'./temp/cf_score.pkl'
+
     corr_score_list = []
     recommend_score = None
     for p1 in frange(-1.0, 1.01, 0.1):
