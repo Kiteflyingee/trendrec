@@ -276,6 +276,8 @@ def trend_predict(item_score,
         # 遍历每个degree的itemset
         score_map = {}
         test_degree_map = {}
+        if Ndegree_items[degree] == {}:
+            continue
         for item in Ndegree_items[degree]:
             # 如果这个item不是同时在训练集和测试集里面出现的
             # 注释掉，因为会出现全为0得分的情况，这样子corr为nan

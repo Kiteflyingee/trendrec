@@ -62,7 +62,6 @@ def readData(filepath, split=',', train_ratio=0.8):
     print("removenum:" ,count)
     return train_data, test_data
     
-    
 
 def rerank(trainset, testset):
     df = pd.concat([trainset,testset], ignore_index=True)  
@@ -78,21 +77,19 @@ def rerank(trainset, testset):
     for idx, iid in enumerate(i_unique):
         i_id[iid] = idx
     
-    new_trainset = trainset.copy()
     for rowidx in tqdm(range(len(trainset)),ascii=True):
         uid = trainset.iloc[rowidx, 0]
         iid = trainset.iloc[rowidx, 1]
-        new_trainset.iloc[rowidx, 0] = u_id[uid]
-        new_trainset.iloc[rowidx, 1] = i_id[iid]
+        trainset.iloc[rowidx, 0] = u_id[uid]
+        trainset.iloc[rowidx, 1] = i_id[iid]
 
-    new_testset = testset.copy()
     for rowidx in range(len(testset)):
         uid = testset.iloc[rowidx, 0]
         iid = testset.iloc[rowidx, 1]
-        new_testset.iloc[rowidx, 0] = u_id[uid]
-        new_testset.iloc[rowidx, 1] = i_id[iid]
+        testset.iloc[rowidx, 0] = u_id[uid]
+        testset.iloc[rowidx, 1] = i_id[iid]
     
-    return new_trainset, new_testset
+    return trainset, testset
 
 
 def rerank_multithread(trainset, testset):

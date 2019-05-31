@@ -343,9 +343,14 @@ if __name__ == "__main__":
             yield x
             x += jump
 
-    data_file = "./data/amazon_1.pkl"
+    data_file = "./data/delicious_pkl.pkl"
     # data_file = "./data/movielens.pkl"
-    
+    trainfile = "./data/delicious/delicious_train_new.csv"
+    testfile = "./data/delicious/delicious_test_new.csv"
+    train = pd.read_csv(trainfile, header=None)
+    test = pd.read_csv(trainfile, header=None)
+    pickle.dump((train,test), open(data_file,'wb'))
+
     corr_score_list = []
     recommend_score = None
     for p1 in frange(-1.0, 1.01, 0.1):
