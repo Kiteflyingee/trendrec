@@ -14,8 +14,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from PreprocessData import readData
 from tqdm import tqdm
 
-
-
+import pickle
+import os
 
 
 def process_data(trainset, testset):
@@ -68,6 +68,7 @@ def massDiffisionForOne(train, user, udegree, idegree, _lambda=1, K=1000):
     '''
     对单用户做MassDiffusion过程
     '''
+    
     itemnum = np.shape(train)[1]
     # 这里的usernum和itemnum都是在原始上加1(在id从1开始的数据集，id从0开始的就没有这种情况)
     item_score = np.zeros(itemnum,dtype=np.float32)
@@ -86,7 +87,7 @@ def massDiffisionForOne(train, user, udegree, idegree, _lambda=1, K=1000):
         for item in u_itemscore.keys():
             item_score[item] = u_itemscore[item] + item_score[item]
     # 这个user对最终item score得分贡献*该user的度的lambda次方
-    item_score = item_score * pow(udegree.get(user, 0.0), _lambda)
+    # item_score = item_score * pow(udegree.get(user), _lambda)
     return item_score
 
 
@@ -183,6 +184,8 @@ def trend_predict(item_score,
         # 遍历每个degree的itemset
         score_map = {}
         test_degree_map = {}
+        if Ndegree_items[degree] == {}:
+            continue
         for item in Ndegree_items[degree]:
             score_map[item] = item_score[item]
             test_degree_map[item] = test_item_degree.get(item, 0)
@@ -196,32 +199,64 @@ def trend_predict(item_score,
 
 
 
-def exp():
+def degree_item_map(item_degrees):
+    '''
+    建立degree-item倒排表,用于统计训练集中item的degree信息
+    '''
+    degreedistrev = {}
+    for iid, degree in item_degrees.items():
+        if degree not in degreedistrev:
+            degreedistrev[degree] = []
+        degreedistrev[degree].append(iid)
+    return degreedistrev
+
+
+
+
+def exp(mylambda):
     '''
     编写实验逻辑
     '''
-    filepath = r'./data/netflix5k_result.txt'
+    score_filepath = './temp/movielens_score.pkl'
+    # filepath = r'./data/Amazon/Amazon_2.txt'
+    filepath = r'./data/movielen5000_7533_link864581_day0_1096.txt'
     train_data, test_data = readData(filepath, split=',', train_ratio=0.7)    
     train_data = train_data.rename(columns={0:'uid',1:'iid'})
     test_data = test_data.rename(columns={0:'uid',1:'iid'})
-    train, _, udegree, idegree = process_data(train_data,test_data)
-    # userid从1开始的情况
-    total_item_score = np.zeros(train.shape[1], dtype=np.float64)
-    for user in tqdm(range(1,train.shape[0]),ascii=True):
-    # userid从0开始的情况
-    # for user in range(train.shape[0]):
-        one_item_score = massDiffisionForOne(train, user, udegree, idegree, K=1000)
-        total_item_score += one_item_score
-
+    train, _, udegree, idegree = process_data(train_data, test_data)
     # 获得度-itemset 分布信息
-    Ndegree_items = getNdegree_items(idegree, N=20)
+    degreedistrev = degree_item_map(idegree)
+    Ndegree_items = getNdegree_items(degreedistrev, N=20)
     # 获得testset item度分布
     test_item_degree = test_data.iid.value_counts()
+    # userid从1开始的情况
+    total_item_score = np.zeros(train.shape[1], dtype=np.float64)
+    if os.path.exists(score_filepath):
+        item_scores = pickle.load(open(score_filepath,'rb'))
+        for user in tqdm(range(1,train.shape[0]),ascii=True):
+            if udegree.get(user, 0.0) == 0.0:
+                continue
+            one_item_score = item_scores[user]
+            total_item_score += one_item_score * pow(udegree.get(user), mylambda)
+    else:
+        item_scores = {}
+        for user in tqdm(range(1,train.shape[0]),ascii=True):
+        # userid从0开始的情况
+        # for user in range(train.shape[0]):
+            if udegree.get(user, 0.0) == 0.0:
+                continue
+            one_item_score = massDiffisionForOne(train, user, udegree, idegree, mylambda, K=1000)
+            total_item_score += one_item_score * pow(udegree.get(user), mylambda)
+            item_scores[user] = one_item_score
+        pickle.dump(item_scores, open(score_filepath,'wb'))
+
+    
     corr_score = trend_predict(total_item_score, 
                                 Ndegree_items,
                                 test_item_degree, 
                                 method='pearson')
     print(corr_score)
+    return corr_score
 
 
 
@@ -229,4 +264,22 @@ if __name__ == '__main__':
     '''
     入口
     '''
-    exp()
+    def frange(x, y, jump):
+        while x < y:
+            yield x
+            x += jump
+
+    lambdas = list(frange(-1.0,1.01,0.1))
+    scores = []
+    with open('md_movielens_result.csv','w',encoding="utf-8") as f:
+        for mylambda in lambdas:
+            corr_score = exp(mylambda)
+            scores.append(corr_score)
+            f.write(str(mylambda) + ',')
+            result = ''
+            for _,score in corr_score.items():
+                result += str(score) + ','
+            f.write(result[:-1]+'\n')
+            f.flush()
+    
+    

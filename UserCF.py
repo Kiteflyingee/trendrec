@@ -343,7 +343,7 @@ if __name__ == "__main__":
             yield x
             x += jump
 
-    data_file = "./data/amazon.pkl"
+    data_file = "./data/delicious_iterrows.pkl"
     # data_file = "./data/movielens.pkl"
     recommend_score_file=r'./temp/cf_score.pkl'
 

@@ -217,12 +217,20 @@ def exp(mylambda):
     '''
     编写实验逻辑
     '''
-    score_filepath = 'amazon_score.pkl'
-    filepath = r'./data/Amazon/Amazon_2.txt'
+    score_filepath = 'temp/netflix_score.pkl'
+    # filepath = r'./data/Amazon/Amazon_2.txt'
+    filepath = r'./data/netflix5k_result.txt'
     train_data, test_data = readData(filepath, split=',', train_ratio=0.7)    
     train_data = train_data.rename(columns={0:'uid',1:'iid'})
     test_data = test_data.rename(columns={0:'uid',1:'iid'})
     train, _, udegree, idegree = process_data(train_data, test_data)
+    # 获得度-itemset 分布信息
+    degreedistrev = degree_item_map(idegree)
+    Ndegree_items = getNdegree_items(degreedistrev, N=20)
+    # 获得testset item度分布
+    test_item_degree = test_data.iid.value_counts()
+
+
     # userid从1开始的情况
     total_item_score = np.zeros(train.shape[1], dtype=np.float64)
     if os.path.exists(score_filepath):
@@ -244,11 +252,7 @@ def exp(mylambda):
             item_scores[user] = one_item_score
         pickle.dump(item_scores, open(score_filepath,'wb'))
 
-    # 获得度-itemset 分布信息
-    degreedistrev = degree_item_map(idegree)
-    Ndegree_items = getNdegree_items(degreedistrev, N=20)
-    # 获得testset item度分布
-    test_item_degree = test_data.iid.value_counts()
+    
     corr_score = trend_predict(total_item_score, 
                                 Ndegree_items,
                                 test_item_degree, 
@@ -269,7 +273,7 @@ if __name__ == '__main__':
 
     lambdas = list(frange(-1.0,1.01,0.1))
     scores = []
-    with open('md_Amazon_result.csv','w',encoding="utf-8") as f:
+    with open('md_netflix_result.csv','w',encoding="utf-8") as f:
         for mylambda in lambdas:
             corr_score = exp(mylambda)
             scores.append(corr_score)

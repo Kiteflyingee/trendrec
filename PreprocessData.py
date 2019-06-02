@@ -25,8 +25,26 @@ uid    iid   timestamp
 # 处理数据暂时不做下采样
 
 
-def readData(filepath, split=',', train_ratio=0.8, sample_num=100000):
-# def readData(filepath, split=',', train_ratio=0.8):
+# def readData:
+def readData(filepath, split=',', train_ratio=0.7):
+    '''
+    直接读所有数据集，包装成pandas，返还训练集和测试集
+    '''
+    data = pd.read_csv(filepath, sep=split, header=None,encoding='utf-8')
+    data = data.sort_values(by=2, axis=0, ascending=True).iloc[:,:3]
+    # 有的数据超过三列，只取前3列
+    data = data.sort_values(by=2, axis=0, ascending=True).iloc[:,:3]
+    data_len = data.shape[0]
+    train_len = (int)(data_len * train_ratio)
+    train_data = data.iloc[:train_len,:]
+    test_data = data.iloc[train_len:,:]
+    return train_data, test_data
+
+
+def reduceData(filepath, split=',', train_ratio=0.7, sample_num=100000):
+    '''
+    该方法用于缩小数据集，只在大数据集上使用，这个提取到数据是有偏差的
+    '''
     data = pd.read_csv(filepath, sep=split, header=None,encoding='utf-8')
     data = data.sort_values(by=2, axis=0, ascending=True)[0: sample_num]
     # 有的数据超过三列，只取前3列
@@ -88,6 +106,35 @@ def rerank(trainset, testset):
         iid = testset.iloc[rowidx, 1]
         testset.iloc[rowidx, 0] = u_id[uid]
         testset.iloc[rowidx, 1] = i_id[iid]
+    
+    return trainset, testset
+
+
+def new_rerank(trainset, testset):
+    '''
+    pandas 遍历使用iterrows加速
+    '''
+    df = pd.concat([trainset,testset], ignore_index=True)  
+    df.columns = ['uid','iid','time']
+    u_unique = df.uid.unique()
+    i_unique = df.iid.unique()
+    u_id = {}
+    i_id = {}
+
+    for idx, uid in enumerate(u_unique):
+        u_id[uid] = idx
+
+    for idx, iid in enumerate(i_unique):
+        i_id[iid] = idx
+    
+    for index, row in tqdm(trainset.iterrows(),ascii=True):
+        row[0] = u_id[row[0]]
+        row[1] = i_id[row[1]]
+        # trainset.iloc[rowidx, 1] = i_id[iid]
+
+    for index, row in testset.iterrows():
+        row[0] = u_id[row[0]]
+        row[1] = i_id[row[1]]
     
     return trainset, testset
 
